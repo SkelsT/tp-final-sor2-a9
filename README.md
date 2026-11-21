@@ -1,7 +1,7 @@
 # TP Final SOR2 — Tema A9: Evasión de Suricata y Mejora de Reglas con ML
 
-**Alumno:** Emanuel Suárez (Legajo 41573744) — UNGS, Licenciatura en Sistemas
-**Materia:** Sistemas Operativos y Redes II — 2º Semestre 2026
+**Alumno:** Emanuel Suárez (Legajo 41573744) — UNGS, Licenciatura en Sistemas  
+**Materia:** Sistemas Operativos y Redes II — 2º Semestre 2026  
 **Docente:** Benjamín Chuquimango
 
 ## Pregunta de investigación
@@ -13,13 +13,14 @@ alarmas?
 
 ## Estructura del repositorio
 
-.
-├── configs/     # Configuración de Suricata y reglas custom
+```
+tp-final-sor2-a9/
+├── configs/     # Configuración de Suricata 
 ├── data/        # Datasets, capturas .pcap y manifiesto de escenarios (ver data/README.md)
 ├── scripts/     # Generación de tráfico, orquestación, extracción de features y evaluación ML
 ├── results/     # Métricas, tablas y gráficos generados
-└── informe/     # Informe académico final (.docx)
-
+└── informe/     # Informe académico final (.docx) *a subir*
+```
 ## Entorno
 
 - 2 VMs en VirtualBox, red Host-Only aislada 192.168.56.0/24:
@@ -29,21 +30,27 @@ alarmas?
 
 ## Cómo reproducir
 
-1. Laboratorio: instalar Suricata + ET Open en la Víctima (configs/suricata.yaml,
-   HOME_NET restringido a 192.168.56.20/32).
-2. Generación de tráfico (desde la Atacante):
-   ~/tp_sor2/run_experimento.sh <modo>   # modos: benigno, estandar, sqli_base,
-                                          # evasion_c3, evasion_c4, control_ua, evasion_c7_v2
-   Orquesta tcpdump en la Víctima vía SSH + generador_trafico.py en la Atacante,
-   recupera .pcap, eve.json y fast.log de cada corrida.
-3. Extracción de features:
-   - Extractor propio (Scapy, 19 features): scripts/evaluar_ml.py
-   - CICFlowMeter (76 features): cicflowmeter -f <esc>.pcap -c cic_flows/<esc>_cic.csv
-4. Evaluación ML y validación:
-   python3 scripts/evaluar_ml.py              # RF sobre features propias (Scapy)
-   python3 scripts/evaluar_cic.py             # RF sobre features CICFlowMeter
-   python3 scripts/validacion_fase1.py        # métricas completas + estabilidad multi-semilla
-   python3 scripts/generar_graficos_3_enfoques.py
+1. **Laboratorio:** instalar Suricata + ET Open en la Víctima (`configs/suricata.yaml`, con `HOME_NET` restringido a `192.168.56.20/32`).
+
+2. **Generación de tráfico** (desde la Atacante):
+
+       ~/tp_sor2/run_experimento.sh <modo>
+
+   Modos disponibles: `benigno`, `estandar`, `sqli_base`, `evasion_c3`, `evasion_c4`, `control_ua`, `evasion_c7_v2`.
+   El script orquesta `tcpdump` en la Víctima vía SSH junto con `generador_trafico.py` en la Atacante, y recupera `.pcap`, `eve.json` y `fast.log` de cada corrida.
+
+3. **Extracción de features:**
+   - **Extractor propio (Scapy, 19 features):** `scripts/evaluar_ml.py`
+   - **CICFlowMeter (76 features):**
+
+         cicflowmeter -f <esc>.pcap -c cic_flows/<esc>_cic.csv
+
+4. **Evaluación ML y validación:**
+
+       python3 scripts/evaluar_ml.py              # RF sobre features propias (Scapy)
+       python3 scripts/evaluar_cic.py             # RF sobre features CICFlowMeter
+       python3 scripts/validacion_fase1.py        # métricas completas + estabilidad multi-semilla
+       python3 scripts/generar_graficos_3_enfoques.py
 
 ## Resultados principales
 
