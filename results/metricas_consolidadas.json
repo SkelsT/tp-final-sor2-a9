@@ -1,43 +1,45 @@
 {
+  "n_flujos_depurados": 540,
+  "n_features_cic": 76,
   "seed_42": {
     "RF_Scapy_19f": {
       "modelo": "RF_Scapy_19f",
       "seed": 42,
-      "n_flujos": 553,
+      "n_flujos": 540,
       "n_features": 19,
       "cv_metrics": {
-        "TP": 241,
+        "TP": 232,
         "FP": 0,
-        "FN": 12,
+        "FN": 8,
         "TN": 300,
-        "Recall": 95.26,
+        "Recall": 96.67,
         "Precision": 100.0,
         "FPR": 0.0,
-        "F1_score": 97.57
+        "F1_score": 98.31
       },
       "zd_metrics": {
-        "TP": 166,
+        "TP": 153,
         "FP": 0,
         "FN": 7,
         "TN": 300,
-        "Recall": 95.95,
+        "Recall": 95.62,
         "Precision": 100.0,
         "FPR": 0.0,
-        "F1_score": 97.94
+        "F1_score": 97.76
       },
       "recall_cv": {
-        "estandar": 75.0,
+        "estandar": 82.5,
         "sqli_base": 97.5,
         "evasion_c3": 100.0,
         "evasion_c4": 100.0,
-        "control_ua": 97.5,
+        "control_ua": 100.0,
         "evasion_c7_v2": 100.0
       },
       "recall_zd": {
         "estandar": null,
         "sqli_base": null,
         "evasion_c3": 100.0,
-        "evasion_c4": 94.34,
+        "evasion_c4": 92.5,
         "control_ua": 90.0,
         "evasion_c7_v2": 100.0
       }
@@ -45,27 +47,27 @@
     "RF_CIC_76f": {
       "modelo": "RF_CIC_76f",
       "seed": 42,
-      "n_flujos": 553,
+      "n_flujos": 540,
       "n_features": 76,
       "cv_metrics": {
-        "TP": 247,
+        "TP": 234,
         "FP": 0,
         "FN": 6,
         "TN": 300,
-        "Recall": 97.63,
+        "Recall": 97.5,
         "Precision": 100.0,
         "FPR": 0.0,
-        "F1_score": 98.8
+        "F1_score": 98.73
       },
       "zd_metrics": {
-        "TP": 130,
+        "TP": 117,
         "FP": 0,
         "FN": 43,
         "TN": 300,
-        "Recall": 75.14,
+        "Recall": 73.12,
         "Precision": 100.0,
         "FPR": 0.0,
-        "F1_score": 85.81
+        "F1_score": 84.48
       },
       "recall_cv": {
         "estandar": 85.0,
@@ -79,7 +81,7 @@
         "estandar": null,
         "sqli_base": null,
         "evasion_c3": 100.0,
-        "evasion_c4": 24.53,
+        "evasion_c4": 0.0,
         "control_ua": 92.5,
         "evasion_c7_v2": 100.0
       }
@@ -89,13 +91,13 @@
     "RF_CIC_76f": {
       "evasion_c4": {
         "n": 10,
-        "media": 69.25,
-        "std": 39.74,
-        "min": 18.87,
+        "media": 60.0,
+        "std": 51.64,
+        "min": 0.0,
         "max": 100.0,
         "t_crit": 2.2622,
-        "ic95_low": 40.82,
-        "ic95_high": 97.67
+        "ic95_low": 23.06,
+        "ic95_high": 96.94
       },
       "evasion_c3": {
         "n": 10,
@@ -131,13 +133,13 @@
     "RF_Scapy_19f": {
       "evasion_c4": {
         "n": 10,
-        "media": 90.38,
-        "std": 13.88,
-        "min": 52.83,
+        "media": 87.25,
+        "std": 18.39,
+        "min": 37.5,
         "max": 100.0,
         "t_crit": 2.2622,
-        "ic95_low": 80.45,
-        "ic95_high": 100.3
+        "ic95_low": 74.1,
+        "ic95_high": 100.4
       },
       "evasion_c3": {
         "n": 10,
