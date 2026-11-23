@@ -1,0 +1,1 @@
+11/22/2026-14:31:00.511881  [**] [1:2001219:20] ET SCAN Potential SSH Scan [**] [Classification: Attempted Information Leak] [Priority: 2] {TCP} 192.168.56.10:47922 -> 192.168.56.20:22

@@ -1,0 +1,70 @@
+{
+  "variantes_no_vistas_recall": {
+    "suricata": 0.5,
+    "rf_scapy": 0.9563,
+    "rf_cic": 0.9875
+  },
+  "benigno_eval_independiente_fpr": {
+    "suricata": 0.0,
+    "rf_scapy": 0.7067,
+    "rf_cic": 0.7933
+  },
+  "por_escenario": {
+    "benigno": {
+      "n": 300,
+      "label_real": 0,
+      "tasa_suricata": 0.0,
+      "tasa_rf_scapy": 0.0,
+      "tasa_rf_cic": 0.0
+    },
+    "estandar": {
+      "n": 40,
+      "label_real": 1,
+      "tasa_suricata": 1.0,
+      "tasa_rf_scapy": 1.0,
+      "tasa_rf_cic": 1.0
+    },
+    "sqli_base": {
+      "n": 40,
+      "label_real": 1,
+      "tasa_suricata": 1.0,
+      "tasa_rf_scapy": 1.0,
+      "tasa_rf_cic": 1.0
+    },
+    "evasion_c3": {
+      "n": 40,
+      "label_real": 1,
+      "tasa_suricata": 1.0,
+      "tasa_rf_scapy": 1.0,
+      "tasa_rf_cic": 1.0
+    },
+    "evasion_c4": {
+      "n": 40,
+      "label_real": 1,
+      "tasa_suricata": 1.0,
+      "tasa_rf_scapy": 0.925,
+      "tasa_rf_cic": 1.0
+    },
+    "control_ua": {
+      "n": 40,
+      "label_real": 1,
+      "tasa_suricata": 0.0,
+      "tasa_rf_scapy": 0.9,
+      "tasa_rf_cic": 0.95
+    },
+    "evasion_c7_v2": {
+      "n": 40,
+      "label_real": 1,
+      "tasa_suricata": 0.0,
+      "tasa_rf_scapy": 1.0,
+      "tasa_rf_cic": 1.0
+    },
+    "benigno_eval": {
+      "n": 150,
+      "label_real": 0,
+      "tasa_suricata": 0.0,
+      "tasa_rf_scapy": 0.7067,
+      "tasa_rf_cic": 0.7933
+    }
+  }
+}
