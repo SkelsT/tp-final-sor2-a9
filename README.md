@@ -1,4 +1,4 @@
-# TP Final SOR2 — Tema A9: Evasión de Suricata y Mejora de Reglas con ML
+# TP Final SOR2 — Tema A9: Caracterización de Suricata 7 (Emerging Threats Open) y clasificadores Random Forest sobre flujos de red: comportamiento, límites y condiciones de uso 
 
 **Alumno:** Emanuel Suárez (Legajo 41573744) — UNGS, Licenciatura en Sistemas  
 **Materia:** Sistemas Operativos y Redes II — 2º Semestre 2026  
@@ -27,16 +27,33 @@ tp-final-sor2-a9/
 ├── results/     # Métricas, tablas y gráficos generados
 └── informe/     # Informe académico final (.docx) *a subir*
 ```
-## Entorno
+## Entorno y configuración de Suricata
 
-- 2 VMs en red Host-Only 192.168.56.0/24:
-  - **Víctima** (192.168.56.20): servidor HTTP + Suricata 7.0.3 RELEASE (suricata-update 1.3.0) con reglas Emerging Threats Open (sin reglas custom propias; snapshot de reglas documentado en configs/).
-  - **Atacante** (192.168.56.10): generación de tráfico benigno y de los 7 escenarios de ataque/variación sobre Python 3.12.3.
-- Captura con tcpdump, análisis con Wireshark.
-- Entornos y extracción de features:
-  - venv (Scapy 2.8.0, scikit-learn 1.9.1, pandas 3.1.1, numpy 2.5.4, matplotlib 3.11.2): extractor propio de 19 features TCP/HTTP, cruce de alertas de Suricata, evaluación ML, tabla por evento y gráficos.
-  - venv_cic (CICFlowMeter fork hieulw/cicflowmeter, 76 features): extractor alternativo/opcional de flujos desde capturas .pcap según la consigna.
-- Clasificador: RandomForestClassifier (scikit-learn), calibrado a FPR≈0% sobre predicciones out-of-fold (OOF).
+* **2 VMs en red Host-Only (`192.168.56.0/24`):**
+  * **Víctima (`192.168.56.20`):** servidor HTTP (`Apache2`) + **Suricata 7.0.3 RELEASE** (`suricata-update 1.3.0`) con reglas *Emerging Threats Open* (sin reglas *custom* propias; `HOME_NET` restringido a `192.168.56.20/32` y salidas `eve.json` y `fast.log` habilitadas).
+  * **Atacante (`192.168.56.10`):** generación de tráfico benigno y de los escenarios de ataque/variación sobre `Python 3.12.3`.
+* **Captura y análisis:** `tcpdump` y `Wireshark`.
+* **Entornos y extracción de *features*:**
+  * `venv` (`Scapy 2.8.0`, `scikit-learn 1.9.1`, `pandas 3.1.1`, `numpy 2.5.4`, `scipy`, `matplotlib 3.11.2`): extractor propio de 19 *features* TCP/HTTP, cruce de alertas de Suricata, evaluación ML, tabla por evento y gráficos.
+  * `venv_cic` (`CICFlowMeter`, *fork* `hieulw/cicflowmeter`, 76 *features* numéricas): extractor alternativo de flujos desde capturas `.pcap`.
+* **Clasificador:** `RandomForestClassifier` (`scikit-learn`), calibrado a `FPR ≈ 0%` sobre predicciones *out-of-fold* (OOF).
+
+### Configuración de Suricata y recuperación de reglas Emerging Threats Open
+
+En este trabajo se utiliza **Suricata 7.0.3** con el conjunto de reglas estándar **Emerging Threats Open** (`et/open`), sin reglas *custom* propias:
+
+* `configs/suricata.yaml` (o `/etc/suricata/suricata.yaml` en la VM Víctima `192.168.56.20`): configuración principal del motor con `HOME_NET` restringido a `[192.168.56.20/32]` y salidas `eve.json` (alertas y HTTP) y `fast.log` habilitadas.
+* **Snapshot de referencia del trabajo:** reglas *Emerging Threats Open* actualizadas al **12/11/2026** (`53.420` reglas cargadas en `/var/lib/suricata/rules/suricata.rules`). Para reproducir el conjunto de reglas `et/open` en la VM Víctima:
+
+```bash
+suricata -V
+sudo suricata-update list-sources
+sudo suricata-update enable-source et/open
+sudo suricata-update
+ls -lh /var/lib/suricata/rules/suricata.rules
+```
+
+*(Nota: al tratarse de un feed de reglas público y actualizado periódicamente, se recomienda registrar en `configs/` el hash/fecha de descarga o copia de respaldo del conjunto utilizado si se desea congelar exactamente la versión del 12/11/2026).*
 
 ## Escenarios
 
@@ -61,9 +78,9 @@ tp-final-sor2-a9/
 
 ## Cómo reproducir
 
-1. **Laboratorio:** instalar Suricata 7.0.3 + ET Open en la Víctima (`configs/suricata.yaml`, con `HOME_NET` restringido a `192.168.56.20/32`).
+1. **Laboratorio:** Configurar Suricata 7.0.3 + ET Open en la Víctima (`configs/suricata.yaml`, con `HOME_NET` restringido a `192.168.56.20/32`, `eve.json` y `fast.log` activos) y verificar el conjunto de reglas según el apartado anterior.
 
-2. **Generación de tráfico** (desde la Atacante):
+2. **Generación de tráfico** (desde la VM Atacante):
 
    ```bash
    ~/tp_sor2/run_experimento.sh <modo>
@@ -79,14 +96,14 @@ tp-final-sor2-a9/
    ```
 
 3. **Extracción de features:**
-   * **Extractor propio (Scapy, 19 features, en entorno `venv`):** `scripts/evaluar_ml.py` y `scripts/construir_tabla_eventos.py`
-   * **CICFlowMeter (76 features, en entorno `venv_cic`):**
+   - **Extractor propio (Scapy, 19 features, en entorno `venv`):** `scripts/evaluar_ml.py` y `scripts/construir_tabla_eventos.py`
+   - **CICFlowMeter (76 features, en entorno `venv_cic`):**
 
      ```bash
      cicflowmeter -f <esc>.pcap -c cic_flows/<esc>_cic.csv
      ```
 
-   * **Depuración de `evasion_c4`:** se filtran las 13 conexiones cortas e incompletas de 2 paquetes (`total_pkts <= 5` en Scapy y `tot_fwd_pkts + tot_bwd_pkts <= 5` en CICFlowMeter), dejando 40 flujos completos y registrando los descartados en `data/c4_flujos_descartados.csv`.
+   * **Depuración de `evasion_c4`:** se filtran las 13 conexiones cortas e incompletas de 2 paquetes (`total_pkts <= 5` en Scapy y `tot_fwd_pkts + tot_bwd_pkts <= 5` en CICFlowMeter), dejando 40 flujos completos y registrando los descartados en `data/c4_flujos_descartados.csv` (540 flujos base depurados; 690 filas en `results/tabla_eventos.csv` al sumar `benigno_eval`).
 
 4. **Evaluación ML, tabla por evento y validación** (en entorno `venv`):
 
