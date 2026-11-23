@@ -37,6 +37,11 @@ META_COLS_SCAPY = [
     "ts_inicio", "ts_fin", "label_real"
 ]
 
+NON_FEAT_CIC = {
+    "escenario", "label", "label_real", "src_ip", "dst_ip",
+    "src_port", "dst_port", "protocol", "timestamp", "flow_id"
+}
+
 
 def parse_iso_ts(ts_str):
     if not ts_str:
@@ -64,9 +69,9 @@ def cargar_alertas_eve(ruta_eve):
                 alertas.append({
                     "ts": parse_iso_ts(ev.get("timestamp")),
                     "src_ip": ev.get("src_ip"),
-                    "src_port": ev.get("src_port"),
+                    "src_port": int(ev.get("src_port")) if ev.get("src_port") is not None else None,
                     "dest_ip": ev.get("dest_ip"),
-                    "dest_port": ev.get("dest_port"),
+                    "dest_port": int(ev.get("dest_port")) if ev.get("dest_port") is not None else None,
                     "sid": ev.get("alert", {}).get("signature_id"),
                 })
     return alertas
@@ -82,10 +87,10 @@ def extraer_flujos_con_meta(ruta_pcap, escenario, label_real):
         ip = pkt[IP]
         tcp = pkt[TCP]
 
-        if ip.dst == VICTIM_IP and tcp.dport == 80:
+        if ip.dst == VICTIM_IP and int(tcp.dport) == 80:
             clave = (ip.src, int(tcp.sport), ip.dst, int(tcp.dport))
             direccion = "fwd"
-        elif ip.src == VICTIM_IP and tcp.sport == 80:
+        elif ip.src == VICTIM_IP and int(tcp.sport) == 80:
             clave = (ip.dst, int(tcp.dport), ip.src, int(tcp.sport))
             direccion = "bwd"
         else:
@@ -125,19 +130,19 @@ def extraer_flujos_con_meta(ruta_pcap, escenario, label_real):
         filas.append({
             "evento_id": f"{escenario}_{idx:04d}",
             "escenario": escenario,
-            "src_ip": src_ip,
-            "src_port": src_port,
-            "dst_ip": dst_ip,
-            "dst_port": dst_port,
-            "ts_inicio": tiempos[0],
-            "ts_fin": tiempos[-1],
+            "src_ip": str(src_ip),
+            "src_port": int(src_port),
+            "dst_ip": str(dst_ip),
+            "dst_port": int(dst_port),
+            "ts_inicio": float(tiempos[0]),
+            "ts_fin": float(tiempos[-1]),
             "label_real": int(label_real),
-            "duracion": duracion,
-            "total_pkts": total_pkts,
-            "fwd_pkts": len(fwd_sizes),
-            "bwd_pkts": len(bwd_sizes),
-            "ratio_pkts": len(fwd_sizes) / max(len(bwd_sizes), 1),
-            "total_bytes": sum(tamanos),
+            "duracion": float(duracion),
+            "total_pkts": int(total_pkts),
+            "fwd_pkts": int(len(fwd_sizes)),
+            "bwd_pkts": int(len(bwd_sizes)),
+            "ratio_pkts": float(len(fwd_sizes) / max(len(bwd_sizes), 1)),
+            "total_bytes": int(sum(tamanos)),
             "pkt_len_mean": float(np.mean(tamanos)),
             "pkt_len_std": float(np.std(tamanos)),
             "fwd_len_mean": float(np.mean(fwd_sizes)) if fwd_sizes else 0.0,
@@ -145,15 +150,19 @@ def extraer_flujos_con_meta(ruta_pcap, escenario, label_real):
             "iat_mean": float(np.mean(iats)),
             "iat_std": float(np.std(iats)),
             "iat_max": float(np.max(iats)),
-            "n_psh": n_psh,
-            "n_syn": n_syn,
-            "n_fin": n_fin,
-            "n_rst": n_rst,
-            "n_frags": n_frags,
-            "pkts_per_sec": total_pkts / max(duracion, 1e-6),
+            "n_psh": int(n_psh),
+            "n_syn": int(n_syn),
+            "n_fin": int(n_fin),
+            "n_rst": int(n_rst),
+            "n_frags": int(n_frags),
+            "pkts_per_sec": float(total_pkts / max(duracion, 1e-6)),
         })
 
-    return pd.DataFrame(filas)
+    df_out = pd.DataFrame(filas)
+    assert not df_out.duplicated(subset=["escenario", "src_ip", "src_port", "dst_ip", "dst_port"]).any(), (
+        f"Duplicados de conexión detectados en {escenario}"
+    )
+    return df_out
 
 
 def marcar_alertas_suricata(df_esc, alertas):
@@ -163,15 +172,46 @@ def marcar_alertas_suricata(df_esc, alertas):
         for al in alertas:
             if (
                 al["src_ip"] == row["src_ip"]
-                and al["src_port"] == row["src_port"]
+                and al["src_port"] == int(row["src_port"])
                 and al["dest_ip"] == row["dst_ip"]
-                and al["dest_port"] == row["dst_port"]
+                and al["dest_port"] == int(row["dst_port"])
             ):
                 if al["ts"] is None or (row["ts_inicio"] - 1.0 <= al["ts"] <= row["ts_fin"] + 2.0):
                     hit = 1
                     break
         detectado.append(hit)
     return detectado
+
+
+def asignar_pred_cic_por_metadatos(df_destino, df_cic_pred, incluir_escenario=True):
+    """Asigna predicciones de CICFlowMeter mediante metadatos de conexión (sin usar posición de fila)."""
+    claves_meta = ["src_ip", "src_port", "dst_ip", "dst_port"]
+    if incluir_escenario:
+        claves_meta = ["escenario"] + claves_meta
+
+    work_cic = df_cic_pred[claves_meta + ["pred_cic"]].copy()
+    work_cic["src_ip"] = work_cic["src_ip"].astype(str)
+    work_cic["dst_ip"] = work_cic["dst_ip"].astype(str)
+    work_cic["src_port"] = work_cic["src_port"].astype(int)
+    work_cic["dst_port"] = work_cic["dst_port"].astype(int)
+    if incluir_escenario:
+        work_cic["escenario"] = work_cic["escenario"].astype(str)
+
+    assert not work_cic.duplicated(subset=claves_meta).any(), (
+        f"Claves duplicadas en CICFlowMeter para {claves_meta}"
+    )
+
+    merged = pd.merge(
+        df_destino[claves_meta].copy(),
+        work_cic,
+        on=claves_meta,
+        how="left",
+        validate="one_to_one",
+    )
+    assert merged["pred_cic"].notna().all(), (
+        "Existen flujos sin correspondencia exacta por metadatos en CICFlowMeter"
+    )
+    return merged["pred_cic"].astype(int).values
 
 
 def calcular_metricas(y_true, y_pred):
@@ -207,6 +247,7 @@ def main():
         dfs_scapy.append(df_e)
 
     df_main = pd.concat(dfs_scapy, ignore_index=True)
+    assert len(df_main) == 540, f"Se esperaban 540 flujos depurados, se obtuvieron {len(df_main)}"
 
     # Conjunto benigno independiente para evaluación (nunca en train ni en calibración)
     df_ben_eval = extraer_flujos_con_meta(
@@ -235,17 +276,19 @@ def main():
     df_main["det_rf_scapy"] = (clf_scapy.predict_proba(df_main[FEATURE_COLS_SCAPY].values)[:, 1] >= umbral_s).astype(int)
     df_ben_eval["det_rf_scapy"] = (clf_scapy.predict_proba(df_ben_eval[FEATURE_COLS_SCAPY].values)[:, 1] >= umbral_s).astype(int)
 
-    # RF-CICFlowMeter (usando metadatos excluidos de features)
+    # RF-CICFlowMeter (76 características exactas, excluyendo metadatos y protocol)
     cic_dep_path = os.path.join(DIR_DEP, "dataset_cic_unificado_depurado.csv")
     cic_eval_path = os.path.join(DIR_EVAL, "cic_flows", "benigno_eval_cic.csv")
     df_cic = pd.read_csv(cic_dep_path)
     df_cic_eval = pd.read_csv(cic_eval_path)
 
-    non_feat_cic = {"escenario", "label", "src_ip", "dst_ip", "src_port", "dst_port", "timestamp", "flow_id"}
-    feat_cols_cic = [c for c in df_cic.columns if c not in non_feat_cic and pd.api.types.is_numeric_dtype(df_cic[c])]
+    feat_cols_cic = [
+        c for c in df_cic.columns
+        if c not in NON_FEAT_CIC and pd.api.types.is_numeric_dtype(df_cic[c])
+    ]
     common_cic_cols = [c for c in feat_cols_cic if c in df_cic_eval.columns]
+    assert len(common_cic_cols) == 76, f"Se esperaban 76 features en CIC, se obtuvieron {len(common_cic_cols)}"
 
-    # Mapear etiqueta para CIC desde escenarios conocidos
     mapa_lbl = {e: l for e, l in todos_escenarios}
     df_cic["label_real"] = df_cic["escenario"].map(mapa_lbl)
     df_cic_train = df_cic[df_cic["escenario"].isin([e for e, _ in ESCENARIOS_BASE])].dropna(subset=["label_real"]).copy()
@@ -262,26 +305,23 @@ def main():
     clf_cic = RandomForestClassifier(n_estimators=200, random_state=42)
     clf_cic.fit(X_train_c, y_train_c)
 
-    # Alinear predicciones RF-CIC al df_main por escenario y orden dentro del escenario
-    preds_cic_main = np.zeros(len(df_main), dtype=int)
-    for esc, _ in todos_escenarios:
-        idx_m = df_main.index[df_main["escenario"] == esc].tolist()
-        sub_c = df_cic[df_cic["escenario"] == esc]
-        if len(sub_c) > 0:
-            X_sub = sub_c[common_cic_cols].replace([np.inf, -np.inf], np.nan).fillna(0.0).values
-            p_sub = (clf_cic.predict_proba(X_sub)[:, 1] >= umbral_c).astype(int)
-            for k, row_idx in enumerate(idx_m):
-                preds_cic_main[row_idx] = int(p_sub[k % len(p_sub)])
+    df_cic = df_cic.copy()
+    X_all_c = df_cic[common_cic_cols].replace([np.inf, -np.inf], np.nan).fillna(0.0).values
+    df_cic["pred_cic"] = (clf_cic.predict_proba(X_all_c)[:, 1] >= umbral_c).astype(int)
+    df_main["det_rf_cic"] = asignar_pred_cic_por_metadatos(df_main, df_cic, incluir_escenario=True)
 
-    df_main["det_rf_cic"] = preds_cic_main
-
+    df_cic_eval = df_cic_eval.copy()
     X_ben_c = df_cic_eval[common_cic_cols].replace([np.inf, -np.inf], np.nan).fillna(0.0).values
-    preds_cic_ben = (clf_cic.predict_proba(X_ben_c)[:, 1] >= umbral_c).astype(int)
-    df_ben_eval["det_rf_cic"] = [int(preds_cic_ben[i % len(preds_cic_ben)]) for i in range(len(df_ben_eval))]
+    df_cic_eval["pred_cic"] = (clf_cic.predict_proba(X_ben_c)[:, 1] >= umbral_c).astype(int)
+    df_ben_eval["det_rf_cic"] = asignar_pred_cic_por_metadatos(df_ben_eval, df_cic_eval, incluir_escenario=False)
 
     # Tabla evento por evento (metadatos + etiqueta + 3 detectores)
     cols_tabla = META_COLS_SCAPY + ["det_suricata", "det_rf_scapy", "det_rf_cic"]
     tabla_completa = pd.concat([df_main[cols_tabla], df_ben_eval[cols_tabla]], ignore_index=True)
+    assert not tabla_completa.duplicated(subset=["escenario", "src_ip", "src_port", "dst_ip", "dst_port"]).any(), (
+        "Existen filas duplicadas en tabla_eventos"
+    )
+
     ruta_tabla = os.path.join(DIR_DEP, "tabla_eventos.csv")
     tabla_completa.to_csv(ruta_tabla, index=False)
 
@@ -290,6 +330,8 @@ def main():
     sub_nv = df_main[df_main["escenario"].isin(no_vistos_names)]
 
     metricas = {
+        "n_features_cic": len(common_cic_cols),
+        "n_flujos_depurados_base": int(len(df_main)),
         "variantes_no_vistas_recall": {
             "suricata": calcular_metricas(sub_nv["label_real"], sub_nv["det_suricata"])["recall"],
             "rf_scapy": calcular_metricas(sub_nv["label_real"], sub_nv["det_rf_scapy"])["recall"],
@@ -304,7 +346,7 @@ def main():
     }
 
     print(f"[+] Tabla evento por evento guardada en: {ruta_tabla} ({len(tabla_completa)} filas)")
-    print(f"[+] Umbral RF-Scapy (OOF benigno base): {umbral_s:.4f} | Umbral RF-CIC: {umbral_c:.4f}\n")
+    print(f"[+] Features CIC utilizadas: {len(common_cic_cols)} | Umbral RF-Scapy: {umbral_s:.4f} | Umbral RF-CIC: {umbral_c:.4f}\n")
     print(f"{'Escenario':<15} | {'N':>4} | {'Label':>5} | {'Suricata':>8} | {'RF-Scapy':>8} | {'RF-CIC':>8}")
     print("-" * 68)
 

@@ -8,7 +8,8 @@ from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.metrics import confusion_matrix
 
 DIR_EXP = os.path.expanduser("~/experimentos")
-DIR_CIC = os.path.join(DIR_EXP, "cic_flows")
+DIR_DEP = os.path.join(DIR_EXP, "depurado_c4")
+DIR_CIC_DEP = os.path.join(DIR_DEP, "cic_flows")
 OUT_DIR = os.path.expanduser("~/tp_sor2/validacion_resultados")
 os.makedirs(OUT_DIR, exist_ok=True)
 
@@ -16,6 +17,27 @@ SEMILLAS = [42, 7, 13, 21, 99, 123, 2024, 314, 777, 1337]
 ESCENARIOS_EVAL = ["estandar", "sqli_base", "evasion_c3", "evasion_c4", "control_ua", "evasion_c7_v2"]
 ESCENARIOS_NO_VISTOS = ["evasion_c4", "evasion_c3", "control_ua", "evasion_c7_v2"]
 TRAIN_ZD = ["benigno", "estandar", "sqli_base"]
+
+COLS_EXCLUIR_SCAPY = {"escenario", "label", "label_real", "evento_id", "src_ip", "dst_ip", "src_port", "dst_port", "ts_inicio", "ts_fin"}
+COLS_EXCLUIR_CIC = {"src_ip", "dst_ip", "src_port", "dst_port", "protocol", "timestamp", "flow_id", "escenario", "label", "label_real"}
+
+
+def resolver_ruta_cic_depurado():
+    candidatas = [
+        os.path.join(DIR_CIC_DEP, "dataset_cic_unificado_depurado.csv"),
+        os.path.join(DIR_DEP, "dataset_cic_unificado_depurado.csv"),
+    ]
+    for ruta in candidatas:
+        if os.path.exists(ruta):
+            return ruta
+    raise FileNotFoundError(f"No se encontró dataset_cic_unificado_depurado.csv en: {candidatas}")
+
+
+def obtener_columna_etiqueta(df):
+    for col in ("label", "label_real"):
+        if col in df.columns:
+            return col
+    raise KeyError("No se encontró columna de etiqueta ('label' o 'label_real') en el dataset.")
 
 
 def calcular_metricas_binarias(y_true, y_pred):
@@ -64,12 +86,18 @@ def contar_alertas_suricata(dir_exp):
 
 def evaluar_modelo(nombre_modelo, ruta_csv, cols_excluir, seed=42):
     df = pd.read_csv(ruta_csv)
+    assert len(df) == 540, f"{nombre_modelo}: se esperaban 540 flujos depurados, se encontraron {len(df)}"
+    assert (df["escenario"] == "evasion_c4").sum() == 40, (
+        f"{nombre_modelo}: se esperaban 40 flujos depurados en evasion_c4"
+    )
+
+    col_label = obtener_columna_etiqueta(df)
     feature_cols = [
         c for c in df.columns
         if c not in cols_excluir and pd.api.types.is_numeric_dtype(df[c])
     ]
     X = df[feature_cols].replace([np.inf, -np.inf], np.nan).fillna(0.0).values
-    y = df["label"].astype(int).values
+    y = df[col_label].astype(int).values
     mask_benigno = (df["escenario"] == "benigno").values
 
     # E1: 5-Fold CV (umbral fijado sobre población benigna out-of-fold)
@@ -105,7 +133,6 @@ def evaluar_modelo(nombre_modelo, ruta_csv, cols_excluir, seed=42):
     probs_zd = clf_zd.predict_proba(X)[:, 1]
     pred_zd = (probs_zd >= umbral_zd).astype(int)
 
-    # Evaluar E2 sobre variantes no vistas + benigno (para FPR global)
     mask_eval_zd = (~mask_train_zd) | mask_benigno
     m_zd = calcular_metricas_binarias(y[mask_eval_zd], pred_zd[mask_eval_zd])
 
@@ -154,30 +181,24 @@ def resumen_t_ic95(serie):
 
 
 def main():
-    ruta_scapy = os.path.join(DIR_EXP, "dataset_flujos.csv")
-    ruta_cic = os.path.join(DIR_CIC, "dataset_cic_unificado.csv")
+    ruta_scapy = os.path.join(DIR_DEP, "dataset_flujos_depurado.csv")
+    ruta_cic = resolver_ruta_cic_depurado()
 
-    res_scapy_42 = evaluar_modelo("RF_Scapy_19f", ruta_scapy, {"escenario", "label"}, seed=42)
-    res_cic_42 = evaluar_modelo("RF_CIC_76f", ruta_cic, {
-        "src_ip", "dst_ip", "src_port", "dst_port", "protocol",
-        "timestamp", "flow_id", "escenario", "label"
-    }, seed=42)
+    res_scapy_42 = evaluar_modelo("RF_Scapy_19f", ruta_scapy, COLS_EXCLUIR_SCAPY, seed=42)
+    res_cic_42 = evaluar_modelo("RF_CIC_76f", ruta_cic, COLS_EXCLUIR_CIC, seed=42)
+    assert res_cic_42["n_features"] == 76, f"Se esperaban 76 features en CIC, se obtuvieron {res_cic_42['n_features']}"
 
-    print("=== RESUMEN METRICAS GLOBALES (SEED=42) ===")
+    print("=== RESUMEN METRICAS GLOBALES DEPURADAS (N=540 | SEED=42) ===")
     for r in [res_scapy_42, res_cic_42]:
         print(f"\nModelo: {r['modelo']} (flujos={r['n_flujos']}, features={r['n_features']})")
         print("  E1 (5-Fold CV):", r["cv_metrics"])
         print("  E2 (No vistas + benigno):", r["zd_metrics"])
         print("  Recall por escenario (E2):", r["recall_zd"])
 
-    # Multi-semilla para estabilidad en E2 en las 4 variantes no vistas
     filas_seeds = []
     for seed in SEMILLAS:
-        rs = evaluar_modelo("RF_Scapy_19f", ruta_scapy, {"escenario", "label"}, seed=seed)
-        rc = evaluar_modelo("RF_CIC_76f", ruta_cic, {
-            "src_ip", "dst_ip", "src_port", "dst_port", "protocol",
-            "timestamp", "flow_id", "escenario", "label"
-        }, seed=seed)
+        rs = evaluar_modelo("RF_Scapy_19f", ruta_scapy, COLS_EXCLUIR_SCAPY, seed=seed)
+        rc = evaluar_modelo("RF_CIC_76f", ruta_cic, COLS_EXCLUIR_CIC, seed=seed)
         for mod, res in [("RF_Scapy_19f", rs), ("RF_CIC_76f", rc)]:
             filas_seeds.append({
                 "modelo": mod,
@@ -202,7 +223,7 @@ def main():
     }
 
     resumen_multisimilla = {}
-    print(f"\n=== ESTABILIDAD MULTI-SEMILLA EN E2 ({len(SEMILLAS)} SEMILLAS | IC95% t-Student) ===")
+    print(f"\n=== ESTABILIDAD MULTI-SEMILLA EN E2 ({len(SEMILLAS)} SEMILLAS | N=540 | IC95% t-Student) ===")
     for mod, grp in df_seeds.groupby("modelo"):
         resumen_multisimilla[mod] = {}
         print(f"\nModelo: {mod}")
@@ -218,6 +239,8 @@ def main():
 
     suricata_counts = contar_alertas_suricata(DIR_EXP)
     salida_json = {
+        "n_flujos_depurados": 540,
+        "n_features_cic": 76,
         "seed_42": {"RF_Scapy_19f": res_scapy_42, "RF_CIC_76f": res_cic_42},
         "multisimilla_e2": resumen_multisimilla,
         "suricata_eve_counts": suricata_counts,

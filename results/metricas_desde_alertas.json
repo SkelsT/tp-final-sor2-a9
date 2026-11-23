@@ -1,13 +1,15 @@
 {
+  "n_features_cic": 76,
+  "n_flujos_depurados_base": 540,
   "variantes_no_vistas_recall": {
     "suricata": 0.5,
     "rf_scapy": 0.9563,
-    "rf_cic": 0.9875
+    "rf_cic": 0.7312
   },
   "benigno_eval_independiente_fpr": {
     "suricata": 0.0,
     "rf_scapy": 0.7067,
-    "rf_cic": 0.7933
+    "rf_cic": 0.7867
   },
   "por_escenario": {
     "benigno": {
@@ -43,14 +45,14 @@
       "label_real": 1,
       "tasa_suricata": 1.0,
       "tasa_rf_scapy": 0.925,
-      "tasa_rf_cic": 1.0
+      "tasa_rf_cic": 0.0
     },
     "control_ua": {
       "n": 40,
       "label_real": 1,
       "tasa_suricata": 0.0,
       "tasa_rf_scapy": 0.9,
-      "tasa_rf_cic": 0.95
+      "tasa_rf_cic": 0.925
     },
     "evasion_c7_v2": {
       "n": 40,
@@ -64,7 +66,7 @@
       "label_real": 0,
       "tasa_suricata": 0.0,
       "tasa_rf_scapy": 0.7067,
-      "tasa_rf_cic": 0.7933
+      "tasa_rf_cic": 0.7867
     }
   }
 }
