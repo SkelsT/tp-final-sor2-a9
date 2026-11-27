@@ -113,6 +113,7 @@ ls -lh /var/lib/suricata/rules/suricata.rules
    python3 scripts/construir_tabla_eventos.py     # tabla por evento + métricas desde alertas reales + FPR en benigno_eval
    python3 scripts/validacion_fase1.py            # métricas completas + estabilidad multi-semilla
    python3 scripts/generar_graficos_depurados.py  # gráficos comparativos e importancia de features
+   python3 scripts/generar_matrices_confusion.py  # matrices de confusión E2 + benigno_eval
    ```
 
 ## Resultados principales
