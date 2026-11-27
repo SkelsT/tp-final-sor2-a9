@@ -35,6 +35,17 @@ Las etiquetas (`label_real`) provienen directamente del script generador de trá
 * `dataset_cic_unificado_depurado.csv` — versión final, alineada con el criterio de depuración aplicado en Scapy (`tot_fwd_pkts + tot_bwd_pkts > 5`, excluyendo los `13` flujos incompletos de `evasion_c4`).
 * `benigno_eval_cic.csv` — features CICFlowMeter del conjunto `benigno_eval`.
 
+## Procedimiento de ejecución
+ 
+El pipeline **definitivo** sobre el dataset depurado (fuente de todos los resultados citados en el informe) es:
+ 
+1. `run_experimento.sh` + `generador_trafico.py` / `generador_benigno_eval.py` — captura de tráfico por escenario.
+2. `evaluar_ml.py` (Scapy, 19 features) y `evaluar_cic.py` (CICFlowMeter, 76 features) — extracción de características.
+3. `construir_tabla_eventos.py` — depuración de `evasion_c4` (13 flujos excluidos) y correlación por metadatos con las alertas de Suricata.
+4. `validacion_fase1.py` — evaluación E1/E2, FPR sobre `benigno_eval` y estabilidad multi-semilla (10 semillas); genera `results/metricas_consolidadas.json` y `results/estabilidad_multisimilla_e2.csv`.
+5. `generar_graficos_depurados.py` y `generar_matrices_confusion.py`— gráficos finales a partir del dataset depurado, `metricas_desde_alertas.json` y `tabla_eventos.csv` (comparativa de variantes no vistas + FPR, importancia de características y matrices de confusión sobre E2 + `benigno_eval`).
+Los scripts `generar_graficos.py` y `generar_graficos_3_enfoques.py` son **exploratorios/anteriores a la depuración** (el primero opera sobre `dataset_flujos.csv` sin depurar; el segundo corresponde a una etapa intermedia de prueba de los tres enfoques de extracción). Se conservan en el repositorio por trazabilidad del proceso, pero **no** son la fuente de las cifras ni de los gráficos citados en el informe final: esa fuente es exclusivamente el pipeline de los 5 pasos anteriores sobre los archivos `*_depurado*`.
+
 ## Columnas de metadatos (excluidas del entrenamiento)
 
 `evento_id, escenario, src_ip, src_port, dst_ip, dst_port, ts_inicio, ts_fin, label_real` — se utilizan exclusivamente para trazabilidad y correlación programática con las alertas de Suricata (`det_suricata` en `results/tabla_eventos.csv`), nunca como variables predictoras del clasificador.
@@ -49,6 +60,6 @@ En el experimento **E1** (evaluación sobre tráfico conocido), cada escenario c
 
 ## Evaluación de FPR en captura benigna independiente
 
-La estimación de FPR obtenida sobre el propio conjunto de entrenamiento (calibrando y evaluando el umbral sobre la misma muestra) introduce circularidad metodológica y arroja valores cercanos a $0\%$. Al evaluar los mismos modelos con el umbral ya fijado sobre `benigno_eval` (`150` flujos benignos independientes), la FPR real asciende a **$70.67\%$ en RF-Scapy** y **$79.33\%$ en RF-CIC**, frente al **$0.0\%$ en Suricata** sobre tráfico HTTP (puerto 80).
+La estimación de FPR obtenida sobre el propio conjunto de entrenamiento (calibrando y evaluando el umbral sobre la misma muestra) introduce circularidad metodológica y arroja valores cercanos a $0\%$. Al evaluar los mismos modelos con el umbral ya fijado sobre `benigno_eval` (`150` flujos benignos independientes), la FPR real asciende a **$70.67\%$ en RF-Scapy** y **$78.67\%$ en RF-CIC**, frente al **$0.0\%$ en Suricata** sobre tráfico HTTP (puerto 80). Estos valores corresponden a `results/metricas_desde_alertas.json` (campo `benigno_eval_independiente_fpr`), fuente consolidada y definitiva de estas métricas.
 
 El análisis exploratorio de `total_bytes` evidencia que el tráfico benigno de entrenamiento presenta una distribución altamente homogénea (rango intercuartílico entre $\approx 12.3\text{ KB}$ y $\approx 12.4\text{ KB}$), mientras que `benigno_eval` exhibe una distribución bimodal más representativa ($\approx 1.3\text{--}1.4\text{ KB}$ y $\approx 12.3\text{--}12.6\text{ KB}$). Como resultado, ambos clasificadores ajustaron fronteras de decisión excesivamente estrechas alrededor de la respuesta benigna observada durante el entrenamiento. El detalle numérico por evento se encuentra en `scripts/construir_tabla_eventos.py` y `results/metricas_desde_alertas.json`.
