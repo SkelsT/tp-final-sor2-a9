@@ -65,7 +65,7 @@ df_cic = pd.read_csv(os.path.join(DIR_DEP, "dataset_cic_unificado_depurado.csv")
 mapa_lbl = {"benigno": 0, "estandar": 1, "sqli_base": 1, "evasion_c3": 1, "evasion_c4": 1, "control_ua": 1, "evasion_c7_v2": 1}
 df_cic = df_cic[df_cic["escenario"].isin(mapa_lbl)].copy()
 y_c = df_cic["escenario"].map(mapa_lbl).values
-non_c = {"escenario", "label", "src_ip", "dst_ip", "src_port", "dst_port", "timestamp", "flow_id"}
+non_c = {"escenario", "label", "src_ip", "dst_ip", "src_port", "dst_port", "protocol", "timestamp", "flow_id"}
 cols_c = [c for c in df_cic.columns if c not in non_c and pd.api.types.is_numeric_dtype(df_cic[c])]
 X_c = df_cic[cols_c].replace([np.inf, -np.inf], np.nan).fillna(0.0).values
 clf_c = RandomForestClassifier(n_estimators=200, random_state=42).fit(X_c, y_c)
